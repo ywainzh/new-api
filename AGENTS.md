@@ -4,6 +4,10 @@
 
 This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers (OpenAI, Claude, Gemini, Azure, AWS Bedrock, etc.) behind a unified API, with user management, billing, rate limiting, and an admin dashboard.
 
+## Branching
+
+This fork uses `main` as the upstream sync branch and `dev` as the personal development/deployment branch. Read `BRANCHING.md` before changing branches, syncing upstream, or making personal customization changes.
+
 ## Tech Stack
 
 - **Backend**: Go 1.22+, Gin web framework, GORM v2 ORM

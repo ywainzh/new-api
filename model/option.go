@@ -239,6 +239,9 @@ func applyPersonalModeDefaultsLocked() {
 	common.OptionMap["QuotaForInvitee"] = "0"
 	common.OptionMap["HeaderNavModules"] = personalHeaderNavModules
 	common.OptionMap["SidebarModulesAdmin"] = personalSidebarModulesAdmin
+	common.OptionMap["theme.frontend"] = "default"
+	system_setting.GetThemeSettings().Frontend = "default"
+	system_setting.UpdateAndSyncTheme()
 }
 
 func SyncOptions(frequency int) {
@@ -325,6 +328,8 @@ func normalizePersonalModeOptionValue(key string, value string) string {
 		return personalHeaderNavModules
 	case "SidebarModulesAdmin":
 		return personalSidebarModulesAdmin
+	case "theme.frontend":
+		return "default"
 	default:
 		return value
 	}

@@ -1,3 +1,15 @@
+import type { Row } from '@tanstack/react-table'
+import {
+  Trash2,
+  Edit,
+  Power,
+  PowerOff,
+  ExternalLink,
+  ArrowRightLeft,
+  Copy,
+  Link,
+  Loader2,
+} from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -17,18 +29,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback, useState } from 'react'
-import type { Row } from '@tanstack/react-table'
-import {
-  Trash2,
-  Edit,
-  Power,
-  PowerOff,
-  ExternalLink,
-  ArrowRightLeft,
-  Copy,
-  Link,
-  Loader2,
-} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -50,6 +50,7 @@ import {
 import { useChatPresets } from '@/features/chat/hooks/use-chat-presets'
 import { resolveChatUrl, type ChatPreset } from '@/features/chat/lib/chat-links'
 import { sendToFluent } from '@/features/chat/lib/send-to-fluent'
+import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 
 import { updateApiKeyStatus } from '../api'
@@ -98,11 +99,12 @@ export function DataTableRowActions<TData>({
   } = useApiKeys()
   const isEnabled = apiKey.status === API_KEY_STATUS.ENABLED
   const { chatPresets, serverAddress } = useChatPresets()
+  const isChatVisible = useIsSidebarModuleVisible('/chat')
   const [isTogglingStatus, setIsTogglingStatus] = useState(false)
   const resolvedRealKey = resolvedKeys[apiKey.id]
   const isRealKeyLoading = Boolean(loadingKeys[apiKey.id])
 
-  const hasChatPresets = chatPresets.length > 0
+  const hasChatPresets = isChatVisible && chatPresets.length > 0
   const toggleLabel = isEnabled ? t('Disable') : t('Enable')
 
   const handleMenuOpenChange = useCallback(

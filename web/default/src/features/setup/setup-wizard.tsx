@@ -16,14 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
-import { useSystemConfig } from '@/hooks/use-system-config'
+
+import { ErrorState } from '@/components/error-state'
+import { LanguageSwitcher } from '@/components/language-switcher'
+import { LoadingState } from '@/components/loading-state'
 import {
   Card,
   CardContent,
@@ -34,9 +36,9 @@ import {
 } from '@/components/ui/card'
 import { Form } from '@/components/ui/form'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ErrorState } from '@/components/error-state'
-import { LanguageSwitcher } from '@/components/language-switcher'
-import { LoadingState } from '@/components/loading-state'
+import { useSystemConfig } from '@/hooks/use-system-config'
+import { cn } from '@/lib/utils'
+
 import { buildSetupPayload, getSetupStatus, submitSetup } from './api'
 import { AdminStep } from './components/admin-step'
 import { CompleteStep } from './components/complete-step'
@@ -63,6 +65,8 @@ const STEPS = [
     descriptionKey: 'Confirm settings and finish setup',
   },
 ]
+
+const PERSONAL_MODE_STEPS = [STEPS[0], STEPS[1], STEPS[3]]
 
 const DEFAULT_FORM_VALUES: SetupFormValues = {
   username: '',
@@ -97,6 +101,11 @@ export function SetupWizard() {
     queryFn: getSetupStatus,
     retry: false,
   })
+
+  const personalModeEnabled =
+    setupStatus?.personal_mode_enabled === true ||
+    statusResponse?.data?.personal_mode_enabled === true
+  const steps = personalModeEnabled ? PERSONAL_MODE_STEPS : STEPS
 
   const mutation = useMutation({
     mutationKey: ['setup-submit'],
@@ -138,8 +147,8 @@ export function SetupWizard() {
     setSetupStatus(status)
     setCurrentStep(0)
 
-    // Pre-fill usage mode if backend echoes it
-    if (status.SelfUseModeEnabled) {
+    // Pre-fill usage mode if backend echoes it.
+    if (status.personal_mode_enabled || status.SelfUseModeEnabled) {
       form.setValue('usageMode', 'self', {
         shouldDirty: false,
         shouldTouch: false,
@@ -196,11 +205,11 @@ export function SetupWizard() {
         />
       )
     }
-    if (currentStep === 2) {
+    if (currentStep === 2 && !personalModeEnabled) {
       return <UsageModeStep form={form} />
     }
     return <CompleteStep status={setupStatus} values={watchedValues} />
-  }, [currentStep, setupStatus, form, watchedValues])
+  }, [currentStep, setupStatus, form, watchedValues, personalModeEnabled])
 
   const validateAdminStep = () => {
     if (setupStatus?.root_init) return true
@@ -254,9 +263,11 @@ export function SetupWizard() {
 
   const handleNextStep = () => {
     if (currentStep === 1 && !validateAdminStep()) return
-    if (currentStep === 2 && !validateUsageModeStep()) return
+    if (currentStep === 2 && !personalModeEnabled && !validateUsageModeStep()) {
+      return
+    }
 
-    setCurrentStep((step) => Math.min(step + 1, STEPS.length - 1))
+    setCurrentStep((step) => Math.min(step + 1, steps.length - 1))
   }
 
   const handlePreviousStep = () => {
@@ -265,15 +276,36 @@ export function SetupWizard() {
 
   const handleSubmit = async () => {
     const adminValid = validateAdminStep()
-    const usageValid = validateUsageModeStep()
+    const usageValid = personalModeEnabled || validateUsageModeStep()
     if (!adminValid || !usageValid) return
 
-    const payload = buildSetupPayload(
-      form.getValues(),
-      Boolean(setupStatus?.root_init)
-    )
+    const values = personalModeEnabled
+      ? {
+          ...form.getValues(),
+          usageMode: 'self' as const,
+        }
+      : form.getValues()
+    const payload = buildSetupPayload(values, Boolean(setupStatus?.root_init))
 
     mutation.mutate(payload)
+  }
+
+  let setupContent = (
+    <Form {...form}>
+      <form className='space-y-6' onSubmit={(event) => event.preventDefault()}>
+        {currentStepComponent}
+      </form>
+    </Form>
+  )
+  if (isLoading) {
+    setupContent = <LoadingState message={t('Loading setup status…')} />
+  } else if (isError) {
+    setupContent = (
+      <ErrorState
+        title={t('We could not load the setup status.')}
+        onRetry={() => refetch()}
+      />
+    )
   }
 
   return (
@@ -319,31 +351,39 @@ export function SetupWizard() {
           </CardHeader>
 
           <CardContent className='space-y-6'>
-            <ol className='grid gap-3 sm:grid-cols-4'>
-              {STEPS.map((step, index) => {
+            <ol
+              className={cn(
+                'grid gap-3',
+                personalModeEnabled ? 'sm:grid-cols-3' : 'sm:grid-cols-4'
+              )}
+            >
+              {steps.map((step, index) => {
                 const isActive = currentStep === index
                 const isCompleted = currentStep > index
+                let stepClassName = 'border-muted bg-card'
+                if (isCompleted) {
+                  stepClassName = 'border-primary/40 bg-primary/5'
+                }
+                if (isActive) {
+                  stepClassName = 'border-primary ring-primary/20 ring-2'
+                }
+                let stepNumberClassName =
+                  'border-muted-foreground/40 text-muted-foreground'
+                if (isActive || isCompleted) {
+                  stepNumberClassName =
+                    'border-primary bg-primary text-primary-foreground'
+                }
+
                 return (
                   <li
                     key={step.titleKey}
-                    className={cn(
-                      'rounded-xl border p-3',
-                      isActive
-                        ? 'border-primary ring-primary/20 ring-2'
-                        : isCompleted
-                          ? 'border-primary/40 bg-primary/5'
-                          : 'border-muted bg-card'
-                    )}
+                    className={cn('rounded-xl border p-3', stepClassName)}
                   >
                     <div className='flex items-start gap-3'>
                       <span
                         className={cn(
                           'flex size-6 items-center justify-center rounded-md border text-xs font-semibold',
-                          isActive
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : isCompleted
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-muted-foreground/40 text-muted-foreground'
+                          stepNumberClassName
                         )}
                       >
                         {index + 1}
@@ -362,30 +402,14 @@ export function SetupWizard() {
               })}
             </ol>
 
-            {isLoading ? (
-              <LoadingState message={t('Loading setup status…')} />
-            ) : isError ? (
-              <ErrorState
-                title={t('We could not load the setup status.')}
-                onRetry={() => refetch()}
-              />
-            ) : (
-              <Form {...form}>
-                <form
-                  className='space-y-6'
-                  onSubmit={(event) => event.preventDefault()}
-                >
-                  {currentStepComponent}
-                </form>
-              </Form>
-            )}
+            {setupContent}
           </CardContent>
 
           {!isLoading && !isError && (
             <CardFooter className='w-full justify-end border-t'>
               <StepNavigation
                 currentStep={currentStep}
-                totalSteps={STEPS.length}
+                totalSteps={steps.length}
                 onBack={handlePreviousStep}
                 onNext={handleNextStep}
                 onSubmit={handleSubmit}

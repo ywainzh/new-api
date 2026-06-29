@@ -87,6 +87,7 @@ func GetStatus(c *gin.Context) {
 		"chats":                         setting.Chats,
 		"demo_site_enabled":             operation_setting.DemoSiteEnabled,
 		"self_use_mode_enabled":         operation_setting.SelfUseModeEnabled,
+		"personal_mode_enabled":         operation_setting.IsPersonalModeEnabled(),
 		"register_enabled":              common.RegisterEnabled,
 		"password_login_enabled":        common.PasswordLoginEnabled,
 		"password_register_enabled":     common.PasswordRegisterEnabled,
@@ -133,32 +134,34 @@ func GetStatus(c *gin.Context) {
 		data["faq"] = console_setting.GetFAQ()
 	}
 
-	// Add enabled custom OAuth providers
-	customProviders := oauth.GetEnabledCustomProviders()
-	if len(customProviders) > 0 {
-		type CustomOAuthInfo struct {
-			Id                    int    `json:"id"`
-			Name                  string `json:"name"`
-			Slug                  string `json:"slug"`
-			Icon                  string `json:"icon"`
-			ClientId              string `json:"client_id"`
-			AuthorizationEndpoint string `json:"authorization_endpoint"`
-			Scopes                string `json:"scopes"`
+	if !operation_setting.IsPersonalModeEnabled() {
+		// Add enabled custom OAuth providers
+		customProviders := oauth.GetEnabledCustomProviders()
+		if len(customProviders) > 0 {
+			type CustomOAuthInfo struct {
+				Id                    int    `json:"id"`
+				Name                  string `json:"name"`
+				Slug                  string `json:"slug"`
+				Icon                  string `json:"icon"`
+				ClientId              string `json:"client_id"`
+				AuthorizationEndpoint string `json:"authorization_endpoint"`
+				Scopes                string `json:"scopes"`
+			}
+			providersInfo := make([]CustomOAuthInfo, 0, len(customProviders))
+			for _, p := range customProviders {
+				config := p.GetConfig()
+				providersInfo = append(providersInfo, CustomOAuthInfo{
+					Id:                    config.Id,
+					Name:                  config.Name,
+					Slug:                  config.Slug,
+					Icon:                  config.Icon,
+					ClientId:              config.ClientId,
+					AuthorizationEndpoint: config.AuthorizationEndpoint,
+					Scopes:                config.Scopes,
+				})
+			}
+			data["custom_oauth_providers"] = providersInfo
 		}
-		providersInfo := make([]CustomOAuthInfo, 0, len(customProviders))
-		for _, p := range customProviders {
-			config := p.GetConfig()
-			providersInfo = append(providersInfo, CustomOAuthInfo{
-				Id:                    config.Id,
-				Name:                  config.Name,
-				Slug:                  config.Slug,
-				Icon:                  config.Icon,
-				ClientId:              config.ClientId,
-				AuthorizationEndpoint: config.AuthorizationEndpoint,
-				Scopes:                config.Scopes,
-			})
-		}
-		data["custom_oauth_providers"] = providersInfo
 	}
 
 	c.JSON(http.StatusOK, gin.H{

@@ -1,3 +1,4 @@
+import { useLocation } from '@tanstack/react-router'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -17,14 +18,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
-import { useLocation } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { useAuthStore } from '@/stores/auth-store'
-import { ROLE } from '@/lib/roles'
+
 import { resolveSidebarView } from '@/components/layout/lib/sidebar-view-registry'
 import type { NavGroup, ResolvedSidebarView } from '@/components/layout/types'
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
+
 import { useSidebarConfig } from './use-sidebar-config'
 import { useSidebarData } from './use-sidebar-data'
+import { useStatus } from './use-status'
 
 /** Sentinel key used for the root navigation in animation `key=` props */
 const ROOT_VIEW_KEY = '__root'
@@ -45,6 +48,7 @@ const ROOT_VIEW_KEY = '__root'
 export function useSidebarView(): ResolvedSidebarView {
   const { t } = useTranslation()
   const pathname = useLocation({ select: (l) => l.pathname })
+  const { status } = useStatus()
   const userRole = useAuthStore((s) => s.auth.user?.role)
   const rootSidebarData = useSidebarData()
   const configFilteredRoot = useSidebarConfig(rootSidebarData.navGroups)
@@ -68,7 +72,9 @@ export function useSidebarView(): ResolvedSidebarView {
     return {
       key: view.id,
       view,
-      navGroups: view.getNavGroups(t),
+      navGroups: view.getNavGroups(t, {
+        personalModeEnabled: status?.personal_mode_enabled === true,
+      }),
     }
   }
 

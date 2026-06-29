@@ -16,22 +16,24 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, Flame, ShieldCheck, TrendingDown } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAuthStore } from '@/stores/auth-store'
+
+import { StaggerContainer, StaggerItem } from '@/components/page-transition'
+import { Button } from '@/components/ui/button'
+import { getUserQuotaDates } from '@/features/dashboard/api'
+import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
+import type { QuotaDataItem } from '@/features/dashboard/types'
+import { useStatus } from '@/hooks/use-status'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
 import { formatNumber, formatQuota } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
-import { useStatus } from '@/hooks/use-status'
-import { Button } from '@/components/ui/button'
-import { StaggerContainer, StaggerItem } from '@/components/page-transition'
-import { getUserQuotaDates } from '@/features/dashboard/api'
-import { useSummaryCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
-import type { QuotaDataItem } from '@/features/dashboard/types'
+import { useAuthStore } from '@/stores/auth-store'
+
 import { StatCard } from '../ui/stat-card'
 
 const SUMMARY_SPARKLINE_BUCKETS = 12
@@ -138,6 +140,7 @@ export function SummaryCards() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
   const { status, loading } = useStatus()
+  const personalModeEnabled = status?.personal_mode_enabled === true
 
   const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
   const remainQuota = Number(user?.quota ?? 0)
@@ -207,6 +210,19 @@ export function SummaryCards() {
   const healthLevel = getHealthLevel(remainQuota, recentUsage)
   const healthCfg = HEALTH_CONFIG[healthLevel]
   const runwayDays = getRunwayDays(remainQuota, recentUsage)
+  const showBalancePanel = !loading && !personalModeEnabled
+  let runwayDisplay = t('No recent usage')
+  if (runwayDays !== null) {
+    if (runwayDays < 1) {
+      runwayDisplay = t('Less than 1 day left')
+    } else if (runwayDays > 999) {
+      runwayDisplay = `999+ ${t('days')}`
+    } else {
+      runwayDisplay = `~${formatNumber(Math.floor(runwayDays))} ${t('days')}`
+    }
+  } else if (remainQuota <= 0) {
+    runwayDisplay = t('Balance depleted')
+  }
 
   const todayUsageDisplay = formatQuota(recentUsage)
 
@@ -235,7 +251,12 @@ export function SummaryCards() {
 
   return (
     <div className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
-      <div className='grid xl:grid-cols-[minmax(0,1fr)_19rem]'>
+      <div
+        className={cn(
+          'grid',
+          showBalancePanel && 'xl:grid-cols-[minmax(0,1fr)_19rem]'
+        )}
+      >
         <div className='flex flex-col gap-3 p-4 sm:p-5'>
           <div className='flex flex-wrap items-start justify-between gap-3'>
             <div className='flex flex-col gap-1'>
@@ -243,7 +264,11 @@ export function SummaryCards() {
                 {t('Usage at a glance')}
               </h3>
               <p className='text-muted-foreground text-sm'>
-                {t('Monitor balance, usage, and request volume')}
+                {t(
+                  personalModeEnabled
+                    ? 'Monitor API usage and request volume'
+                    : 'Monitor balance, usage, and request volume'
+                )}
               </p>
             </div>
           </div>
@@ -268,78 +293,72 @@ export function SummaryCards() {
           </StaggerContainer>
         </div>
 
-        <div className='bg-warning/10 flex flex-col justify-between gap-4 border-t p-4 sm:p-5 xl:border-t-0 xl:border-l'>
-          <div className='flex flex-col gap-3'>
-            <div className='flex items-center justify-between'>
-              <span className='text-muted-foreground text-xs font-medium'>
-                {t('Credit remaining')}
-              </span>
-              <span className='flex items-center gap-1.5'>
-                <span
-                  className={cn('size-1.5 rounded-full', healthCfg.dotClass)}
-                  aria-hidden='true'
-                />
-                <span className='text-muted-foreground text-[11px] font-medium'>
-                  {t(healthCfg.labelKey)}
+        {showBalancePanel && (
+          <div className='bg-warning/10 flex flex-col justify-between gap-4 border-t p-4 sm:p-5 xl:border-t-0 xl:border-l'>
+            <div className='flex flex-col gap-3'>
+              <div className='flex items-center justify-between'>
+                <span className='text-muted-foreground text-xs font-medium'>
+                  {t('Credit remaining')}
                 </span>
-              </span>
-            </div>
+                <span className='flex items-center gap-1.5'>
+                  <span
+                    className={cn('size-1.5 rounded-full', healthCfg.dotClass)}
+                    aria-hidden='true'
+                  />
+                  <span className='text-muted-foreground text-[11px] font-medium'>
+                    {t(healthCfg.labelKey)}
+                  </span>
+                </span>
+              </div>
 
-            <div className='font-mono text-2xl font-semibold tracking-tight'>
-              {formatQuota(remainQuota)}
-            </div>
+              <div className='font-mono text-2xl font-semibold tracking-tight'>
+                {formatQuota(remainQuota)}
+              </div>
 
-            <div className='grid grid-cols-2 gap-2'>
-              <div className='bg-background/60 rounded-lg px-2.5 py-2'>
-                <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
-                  <Flame className='size-3 shrink-0' aria-hidden='true' />
-                  <span className='truncate'>{t('Last 24h usage')}</span>
+              <div className='grid grid-cols-2 gap-2'>
+                <div className='bg-background/60 rounded-lg px-2.5 py-2'>
+                  <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
+                    <Flame className='size-3 shrink-0' aria-hidden='true' />
+                    <span className='truncate'>{t('Last 24h usage')}</span>
+                  </div>
+                  <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
+                    {formatQuota(recentUsage)}
+                  </div>
                 </div>
-                <div className='text-foreground mt-1.5 truncate text-xs font-semibold tabular-nums'>
-                  {formatQuota(recentUsage)}
+                <div className='bg-background/60 rounded-lg px-2.5 py-2'>
+                  <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
+                    {runwayDays !== null && runwayDays < 3 ? (
+                      <TrendingDown
+                        className='size-3 shrink-0'
+                        aria-hidden='true'
+                      />
+                    ) : (
+                      <ShieldCheck
+                        className='size-3 shrink-0'
+                        aria-hidden='true'
+                      />
+                    )}
+                    <span className='truncate'>{t('Runway')}</span>
+                  </div>
+                  <div
+                    className={cn(
+                      'mt-1.5 truncate text-xs font-semibold tabular-nums',
+                      healthLevel === 'critical' && 'text-destructive',
+                      healthLevel === 'caution' && 'text-warning'
+                    )}
+                  >
+                    {runwayDisplay}
+                  </div>
                 </div>
               </div>
-              <div className='bg-background/60 rounded-lg px-2.5 py-2'>
-                <div className='text-muted-foreground flex items-center gap-1 text-[11px] leading-none font-medium'>
-                  {runwayDays !== null && runwayDays < 3 ? (
-                    <TrendingDown
-                      className='size-3 shrink-0'
-                      aria-hidden='true'
-                    />
-                  ) : (
-                    <ShieldCheck
-                      className='size-3 shrink-0'
-                      aria-hidden='true'
-                    />
-                  )}
-                  <span className='truncate'>{t('Runway')}</span>
-                </div>
-                <div
-                  className={cn(
-                    'mt-1.5 truncate text-xs font-semibold tabular-nums',
-                    healthLevel === 'critical' && 'text-destructive',
-                    healthLevel === 'caution' && 'text-warning'
-                  )}
-                >
-                  {runwayDays !== null
-                    ? runwayDays < 1
-                      ? t('Less than 1 day left')
-                      : runwayDays > 999
-                        ? `999+ ${t('days')}`
-                        : `~${formatNumber(Math.floor(runwayDays))} ${t('days')}`
-                    : remainQuota <= 0
-                      ? t('Balance depleted')
-                      : t('No recent usage')}
-                </div>
-              </div>
             </div>
+
+            <Button className='justify-between' render={<Link to='/wallet' />}>
+              <span>{t('Wallet')}</span>
+              <ArrowRight data-icon='inline-end' />
+            </Button>
           </div>
-
-          <Button className='justify-between' render={<Link to='/wallet' />}>
-            <span>{t('Wallet')}</span>
-            <ArrowRight data-icon='inline-end' />
-          </Button>
-        </div>
+        )}
       </div>
     </div>
   )

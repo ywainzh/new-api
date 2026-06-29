@@ -17,9 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
-import { useAuthStore } from '@/stores/auth-store'
-import { useStatus } from '@/hooks/use-status'
+
 import type { NavGroup, NavItem } from '@/components/layout/types'
+import { useStatus } from '@/hooks/use-status'
+import { useAuthStore } from '@/stores/auth-store'
 
 type SidebarSectionConfig = {
   enabled: boolean
@@ -65,6 +66,36 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
   },
 }
 
+const PERSONAL_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
+  chat: {
+    enabled: false,
+    playground: false,
+    chat: false,
+  },
+  console: {
+    enabled: true,
+    detail: true,
+    token: true,
+    log: true,
+    midjourney: false,
+    task: true,
+  },
+  personal: {
+    enabled: true,
+    topup: false,
+    personal: true,
+  },
+  admin: {
+    enabled: true,
+    channel: true,
+    models: true,
+    redemption: false,
+    user: false,
+    setting: true,
+    subscription: false,
+  },
+}
+
 const mergeWithDefaultSidebarModules = (
   config: SidebarModulesAdminConfig
 ): SidebarModulesAdminConfig => {
@@ -94,6 +125,7 @@ const mergeWithDefaultSidebarModules = (
  * Mapping from URL to configuration keys
  */
 const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
+  '/chat': { section: 'chat', module: 'chat' },
   '/playground': { section: 'chat', module: 'playground' },
   '/dashboard': { section: 'console', module: 'detail' },
   '/dashboard/overview': { section: 'console', module: 'detail' },
@@ -121,8 +153,13 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
  * Parse backend SidebarModulesAdmin configuration
  */
 function parseSidebarConfig(
-  value: string | null | undefined
+  value: string | null | undefined,
+  personalModeEnabled = false
 ): SidebarModulesAdminConfig {
+  if (personalModeEnabled) {
+    return PERSONAL_SIDEBAR_MODULES
+  }
+
   // If empty string, null, or undefined, use default config
   if (!value || value.trim() === '') {
     return DEFAULT_SIDEBAR_MODULES
@@ -278,9 +315,10 @@ export function useSidebarConfig(navGroups: NavGroup[]): NavGroup[] {
   const adminConfig = useMemo(
     () =>
       parseSidebarConfig(
-        status?.SidebarModulesAdmin as string | null | undefined
+        status?.SidebarModulesAdmin as string | null | undefined,
+        status?.personal_mode_enabled === true
       ),
-    [status?.SidebarModulesAdmin]
+    [status?.SidebarModulesAdmin, status?.personal_mode_enabled]
   )
 
   const userConfig = useMemo(() => {
@@ -319,7 +357,8 @@ export function useIsSidebarModuleVisible(url: string): boolean {
   const { auth } = useAuthStore()
 
   const adminConfig = parseSidebarConfig(
-    status?.SidebarModulesAdmin as string | null | undefined
+    status?.SidebarModulesAdmin as string | null | undefined,
+    status?.personal_mode_enabled === true
   )
   const userConfig =
     auth?.user?.permissions?.sidebar_settings === false

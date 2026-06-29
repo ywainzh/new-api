@@ -46,6 +46,14 @@ const DEFAULTS: Record<HeaderNavModule, ModuleAccess> = {
   rankings: DEFAULT_HEADER_NAV_MODULES.rankings,
 }
 
+const PERSONAL_SIDEBAR_MODULES: Record<string, Record<string, boolean>> = {
+  chat: {
+    enabled: false,
+    playground: false,
+    chat: false,
+  },
+}
+
 function cloneHeaderNavDefaults(): HeaderNavModules {
   return {
     ...DEFAULT_HEADER_NAV_MODULES,
@@ -189,10 +197,20 @@ export function isSidebarModuleEnabled(
   section: string,
   module: string
 ): boolean {
-  const status = getCachedStatus()
+  return isSidebarModuleEnabledFromStatus(getCachedStatus(), section, module)
+}
+
+export function isSidebarModuleEnabledFromStatus(
+  status: Record<string, unknown> | null,
+  section: string,
+  module: string
+): boolean {
   if (!status) return true
 
-  const raw = status.SidebarModulesAdmin
+  const raw =
+    status.personal_mode_enabled === true
+      ? JSON.stringify(PERSONAL_SIDEBAR_MODULES)
+      : status.SidebarModulesAdmin
   if (!raw || String(raw).trim() === '') return true
 
   try {

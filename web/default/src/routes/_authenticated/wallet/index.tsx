@@ -1,3 +1,4 @@
+import { createFileRoute, redirect } from '@tanstack/react-router'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -17,14 +18,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { z } from 'zod'
-import { createFileRoute } from '@tanstack/react-router'
+
 import { Wallet } from '@/features/wallet'
+import { getStatus } from '@/lib/api'
 
 const walletSearchSchema = z.object({
   show_history: z.boolean().optional(),
 })
 
 export const Route = createFileRoute('/_authenticated/wallet/')({
+  beforeLoad: async () => {
+    const status = await getStatus()
+    if (status?.personal_mode_enabled === true) {
+      throw redirect({ to: '/dashboard' })
+    }
+  },
   component: RouteComponent,
   validateSearch: walletSearchSchema,
 })

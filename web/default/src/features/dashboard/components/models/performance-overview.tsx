@@ -16,11 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Gauge, HeartPulse, Timer } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
+
 import { Skeleton } from '@/components/ui/skeleton'
 import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
 import {
@@ -31,9 +31,12 @@ import {
   getSuccessRateTextClass,
 } from '@/features/performance-metrics/lib/format'
 import type { PerfModelSummary } from '@/features/performance-metrics/types'
+import { useStatus } from '@/hooks/use-status'
+import { cn } from '@/lib/utils'
 
 const PERFORMANCE_WINDOW_HOURS = 24
 const TOP_MODEL_LIMIT = 6
+const INLINE_SKELETON_KEYS = ['success-rate', 'latency', 'throughput']
 
 type WeightedMetric = 'avg_latency_ms' | 'avg_tps' | 'success_rate'
 
@@ -59,7 +62,7 @@ function simpleAverage(
     count++
   }
 
-  return count > 0 ? total / count : NaN
+  return count > 0 ? total / count : Number.NaN
 }
 
 function buildPerformanceSummary(rows: PerfModelSummary[]): PerformanceSummary {
@@ -83,21 +86,28 @@ function buildPerformanceSummary(rows: PerfModelSummary[]): PerformanceSummary {
 
 export function PerformanceOverview() {
   const { t } = useTranslation()
+  const { status } = useStatus()
+  const personalModeEnabled = status?.personal_mode_enabled === true
   const metricsQuery = useQuery({
     queryKey: ['perf-metrics-summary', PERFORMANCE_WINDOW_HOURS],
     queryFn: () => getPerfMetricsSummary(PERFORMANCE_WINDOW_HOURS),
+    enabled: status != null && !personalModeEnabled,
     staleTime: 60 * 1000,
     retry: false,
   })
 
   const models = useMemo(
-    () => metricsQuery.data?.data.models ?? [],
+    () => metricsQuery.data?.data?.models ?? [],
     [metricsQuery.data]
   )
   const summary = useMemo(() => buildPerformanceSummary(models), [models])
   const topModels = useMemo(() => models.slice(0, TOP_MODEL_LIMIT), [models])
   const loading = metricsQuery.isLoading
   const hasData = models.length > 0
+
+  if (personalModeEnabled) {
+    return null
+  }
 
   if (!loading && !hasData) {
     return (
@@ -127,8 +137,8 @@ export function PerformanceOverview() {
         {/* 3 KPI inline metrics */}
         {loading ? (
           <div className='flex flex-wrap items-center gap-x-5 gap-y-2'>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className='flex items-center gap-1.5'>
+            {INLINE_SKELETON_KEYS.map((key) => (
+              <div key={key} className='flex items-center gap-1.5'>
                 <Skeleton className='h-3 w-14' />
                 <Skeleton className='h-4 w-16' />
               </div>

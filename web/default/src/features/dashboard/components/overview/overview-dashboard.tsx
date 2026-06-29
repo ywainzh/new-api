@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
@@ -38,21 +37,25 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { useAuthStore } from '@/stores/auth-store'
-import { getUserModels } from '@/lib/api'
-import { MOTION_TRANSITION } from '@/lib/motion'
-import { ROLE } from '@/lib/roles'
-import { cn } from '@/lib/utils'
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { Button } from '@/components/ui/button'
+
 import {
   CardStaggerContainer,
   CardStaggerItem,
 } from '@/components/page-transition'
+import { Button } from '@/components/ui/button'
 import { fetchTokenKey, getApiKeys } from '@/features/keys/api'
 import type { ApiKey } from '@/features/keys/types'
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { useStatus } from '@/hooks/use-status'
+import { getUserModels } from '@/lib/api'
+import { MOTION_TRANSITION } from '@/lib/motion'
+import { ROLE } from '@/lib/roles'
+import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
+
 import {
   useApiInfo,
   useDashboardContentVisibility,
@@ -81,7 +84,6 @@ const SETUP_GUIDE_CODE_PATTERN = [
 type DashboardActionPath =
   | '/keys'
   | '/wallet'
-  | '/playground'
   | '/channels'
   | '/usage-logs'
   | '/pricing'
@@ -371,9 +373,9 @@ function RequestPreview(props: {
           <span className='bg-success size-2 rounded-full' />
         </div>
         <div className='flex flex-col gap-1 overflow-hidden'>
-          {previewLines.map((line, index) => (
+          {previewLines.map((line) => (
             <code
-              key={`${line}-${index}`}
+              key={line}
               className='text-muted-foreground truncate'
               title={line}
             >
@@ -455,6 +457,7 @@ function CompactQuickAction(props: { action: QuickAction }) {
 export function OverviewDashboard() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
+  const { status } = useStatus()
   const { items: apiInfoItems } = useApiInfo()
   const {
     apiInfo: showApiInfoPanel,
@@ -470,6 +473,7 @@ export function OverviewDashboard() {
   const remainQuota = Number(user?.quota ?? 0)
   const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.ADMIN)
+  const personalModeEnabled = status?.personal_mode_enabled === true
 
   const apiKeysQuery = useQuery({
     queryKey: ['dashboard', 'overview', 'api-keys'],
@@ -494,8 +498,8 @@ export function OverviewDashboard() {
     [apiKeysQuery.data]
   )
 
-  const startSteps = useMemo<StartStep[]>(
-    () => [
+  const startSteps = useMemo<StartStep[]>(() => {
+    const steps: StartStep[] = [
       {
         title: t('Create API Key'),
         description: t('Create a key for your app or service'),
@@ -504,22 +508,33 @@ export function OverviewDashboard() {
         completed: Boolean(preferredKey),
       },
       {
+        title: t('Send a request'),
+        description: t('Verify routing with your API client or curl example'),
+        to: '/usage-logs',
+        icon: FileText,
+        completed: requestCount > 0,
+      },
+    ]
+
+    if (!personalModeEnabled) {
+      steps.splice(1, 0, {
         title: t('Add credits'),
         description: t('Keep enough balance before production traffic'),
         to: '/wallet',
         icon: CreditCard,
         completed: remainQuota > 0 || usedQuota > 0,
-      },
-      {
-        title: t('Send a request'),
-        description: t('Verify routing with Playground or your client'),
-        to: '/playground',
-        icon: TerminalSquare,
-        completed: requestCount > 0,
-      },
-    ],
-    [preferredKey, remainQuota, requestCount, t, usedQuota]
-  )
+      })
+    }
+
+    return steps
+  }, [
+    personalModeEnabled,
+    preferredKey,
+    remainQuota,
+    requestCount,
+    t,
+    usedQuota,
+  ])
 
   const quickActions = useMemo<QuickAction[]>(
     () => [
@@ -553,8 +568,13 @@ export function OverviewDashboard() {
   )
 
   const visibleQuickActions = useMemo(
-    () => quickActions.filter((action) => !action.adminOnly || isAdmin),
-    [isAdmin, quickActions]
+    () =>
+      quickActions.filter((action) => {
+        if (action.adminOnly && !isAdmin) return false
+        if (personalModeEnabled && action.to === '/pricing') return false
+        return true
+      }),
+    [isAdmin, personalModeEnabled, quickActions]
   )
 
   const heroSignals = useMemo<HeroSignal[]>(
@@ -601,9 +621,17 @@ export function OverviewDashboard() {
   const setupStatusReady = apiKeysQuery.isFetched && Boolean(user)
   const setupGuideExpanded =
     manualSetupGuideExpanded ?? (setupStatusReady && !setupComplete)
+  const visibleApiInfoPanel = !personalModeEnabled && showApiInfoPanel
+  const visibleAnnouncementsPanel =
+    !personalModeEnabled && showAnnouncementsPanel
+  const visibleFAQPanel = !personalModeEnabled && showFAQPanel
+  const visibleUptimePanel = !personalModeEnabled && showUptimePanel
   const showLeftContentPanels =
-    isAdmin || showApiInfoPanel || showAnnouncementsPanel || showFAQPanel
-  const showContentPanels = showLeftContentPanels || showUptimePanel
+    (isAdmin && !personalModeEnabled) ||
+    visibleApiInfoPanel ||
+    visibleAnnouncementsPanel ||
+    visibleFAQPanel
+  const showContentPanels = showLeftContentPanels || visibleUptimePanel
 
   const handleSetupGuideToggle = () => {
     const nextExpanded = !setupGuideExpanded
@@ -631,7 +659,9 @@ export function OverviewDashboard() {
                       </h3>
                       <p className='text-muted-foreground max-w-xl text-sm leading-relaxed'>
                         {t(
-                          'A focused home for keys, balance, routing, and service health.'
+                          personalModeEnabled
+                            ? 'A focused home for keys, routing, and request visibility.'
+                            : 'A focused home for keys, balance, routing, and service health.'
                         )}
                       </p>
                     </div>
@@ -750,7 +780,7 @@ export function OverviewDashboard() {
           className={cn(
             'grid grid-cols-1 gap-4',
             showLeftContentPanels &&
-              showUptimePanel &&
+              visibleUptimePanel &&
               'xl:grid-cols-[minmax(0,1fr)_22rem]'
           )}
         >
@@ -758,33 +788,35 @@ export function OverviewDashboard() {
             <div
               className={cn(
                 'grid min-w-0 grid-cols-1 gap-4',
-                (showApiInfoPanel || showAnnouncementsPanel || showFAQPanel) &&
+                (visibleApiInfoPanel ||
+                  visibleAnnouncementsPanel ||
+                  visibleFAQPanel) &&
                   'lg:grid-cols-2'
               )}
             >
-              {isAdmin && (
+              {isAdmin && !personalModeEnabled && (
                 <CardStaggerItem className='lg:col-span-2'>
                   <PerformanceHealthPanel />
                 </CardStaggerItem>
               )}
-              {showApiInfoPanel && (
+              {visibleApiInfoPanel && (
                 <CardStaggerItem>
                   <ApiInfoPanel />
                 </CardStaggerItem>
               )}
-              {showAnnouncementsPanel && (
+              {visibleAnnouncementsPanel && (
                 <CardStaggerItem>
                   <AnnouncementsPanel />
                 </CardStaggerItem>
               )}
-              {showFAQPanel && (
+              {visibleFAQPanel && (
                 <CardStaggerItem>
                   <FAQPanel />
                 </CardStaggerItem>
               )}
             </div>
           )}
-          {showUptimePanel && (
+          {visibleUptimePanel && (
             <CardStaggerItem>
               <UptimePanel />
             </CardStaggerItem>

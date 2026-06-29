@@ -82,6 +82,7 @@ func InitEnv() {
 	DebugEnabled = os.Getenv("DEBUG") == "true"
 	MemoryCacheEnabled = os.Getenv("MEMORY_CACHE_ENABLED") == "true"
 	IsMasterNode = os.Getenv("NODE_TYPE") != "slave"
+	initPersonalModeEnv()
 	initNodeNameIdentity()
 	TLSInsecureSkipVerify = GetEnvOrDefaultBool("TLS_INSECURE_SKIP_VERIFY", false)
 	if TLSInsecureSkipVerify {
@@ -129,6 +130,17 @@ func InitEnv() {
 	SearchRateLimitNum = GetEnvOrDefault("SEARCH_RATE_LIMIT", 10)
 	SearchRateLimitDuration = int64(GetEnvOrDefault("SEARCH_RATE_LIMIT_DURATION", 60))
 	initConstantEnv()
+}
+
+func initPersonalModeEnv() {
+	if !GetEnvOrDefaultBool("PERSONAL_MODE_ENABLED", false) {
+		return
+	}
+	RegisterEnabled = false
+	PasswordRegisterEnabled = false
+	QuotaForNewUser = 0
+	QuotaForInviter = 0
+	QuotaForInvitee = 0
 }
 
 func initConstantEnv() {

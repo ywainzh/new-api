@@ -28,9 +28,15 @@ import {
   chatLinkRequiresApiKey,
   resolveChatUrl,
 } from '@/features/chat/lib/chat-links'
+import { getStatus } from '@/lib/api'
+import { isSidebarModuleEnabledFromStatus } from '@/lib/nav-modules'
 
 export const Route = createFileRoute('/_authenticated/chat/$chatId')({
   loader: async ({ params }) => {
+    const status = await getStatus()
+    if (!isSidebarModuleEnabledFromStatus(status, 'chat', 'chat')) {
+      throw redirect({ to: '/dashboard' })
+    }
     if (!Number.isInteger(Number(params.chatId))) {
       throw redirect({ to: '/dashboard' })
     }

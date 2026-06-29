@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { getStatus } from '@/lib/api'
 import { ContentSettings } from '@/features/system-settings/content'
 import {
   CONTENT_DEFAULT_SECTION,
@@ -26,7 +27,14 @@ import {
 export const Route = createFileRoute(
   '/_authenticated/system-settings/content/$section'
 )({
-  beforeLoad: ({ params }) => {
+  beforeLoad: async ({ params }) => {
+    const status = await getStatus()
+    if (status?.personal_mode_enabled === true && params.section === 'chat') {
+      throw redirect({
+        to: '/system-settings/content/$section',
+        params: { section: CONTENT_DEFAULT_SECTION },
+      })
+    }
     const validSections = CONTENT_SECTION_IDS as unknown as string[]
     if (!validSections.includes(params.section)) {
       throw redirect({

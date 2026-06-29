@@ -22,6 +22,7 @@ export interface SetupStatus {
   status: boolean
   root_init: boolean
   database_type: string
+  personal_mode_enabled?: boolean
   // Some backends also echo mode flags; they are optional here.
   SelfUseModeEnabled?: boolean
   DemoSiteEnabled?: boolean

@@ -18,9 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useAuthStore } from '@/stores/auth-store'
-import { parseHeaderNavModulesFromStatus } from '@/lib/nav-modules'
+
 import { useStatus } from '@/hooks/use-status'
+import { parseHeaderNavModulesFromStatus } from '@/lib/nav-modules'
+import { useAuthStore } from '@/stores/auth-store'
 
 export type TopNavLink = {
   title: string
@@ -69,6 +70,10 @@ export function useTopNavLinks(): TopNavLink[] {
   // Console -> /dashboard (new console path)
   if (modules?.console !== false) {
     links.push({ title: t('Console'), href: '/dashboard' })
+  }
+
+  if (status?.personal_mode_enabled) {
+    return links
   }
 
   // Pricing

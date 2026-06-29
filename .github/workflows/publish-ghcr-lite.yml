@@ -1,0 +1,40 @@
+name: Publish GHCR Image
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Write VERSION
+        run: echo "${GITHUB_REF_NAME}" > VERSION
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push image
+        env:
+          IMAGE_REPO: ghcr.io/${{ github.repository }}
+        run: |
+          IMAGE_TAG="$(echo "${IMAGE_REPO}" | tr '[:upper:]' '[:lower:]'):${GITHUB_REF_NAME}"
+          docker build \
+            --pull \
+            --platform linux/amd64 \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            -t "${IMAGE_TAG}" \
+            .
+          docker push "${IMAGE_TAG}"

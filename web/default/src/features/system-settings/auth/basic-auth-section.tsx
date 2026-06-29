@@ -16,11 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo } from 'react'
-import * as z from 'zod'
-import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useMemo } from 'react'
+import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import * as z from 'zod'
+
 import {
   Form,
   FormControl,
@@ -32,6 +33,8 @@ import {
 } from '@/components/ui/form'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useStatus } from '@/hooks/use-status'
+
 import {
   SettingsForm,
   SettingsSwitchContent,
@@ -60,7 +63,9 @@ type BasicAuthSectionProps = {
 
 export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
   const { t } = useTranslation()
+  const { status } = useStatus()
   const updateOption = useUpdateOption()
+  const personalModeEnabled = status?.personal_mode_enabled === true
 
   const formDefaults = useMemo<BasicAuthFormValues>(
     () => ({
@@ -133,47 +138,51 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name='RegisterEnabled'
-            render={({ field }) => (
-              <SettingsSwitchItem>
-                <SettingsSwitchContent>
-                  <FormLabel>{t('Registration Enabled')}</FormLabel>
-                  <FormDescription>
-                    {t('Allow new users to register')}
-                  </FormDescription>
-                </SettingsSwitchContent>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </SettingsSwitchItem>
-            )}
-          />
+          {!personalModeEnabled && (
+            <>
+              <FormField
+                control={form.control}
+                name='RegisterEnabled'
+                render={({ field }) => (
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>{t('Registration Enabled')}</FormLabel>
+                      <FormDescription>
+                        {t('Allow new users to register')}
+                      </FormDescription>
+                    </SettingsSwitchContent>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </SettingsSwitchItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name='PasswordRegisterEnabled'
-            render={({ field }) => (
-              <SettingsSwitchItem>
-                <SettingsSwitchContent>
-                  <FormLabel>{t('Password Registration')}</FormLabel>
-                  <FormDescription>
-                    {t('Allow registration with password')}
-                  </FormDescription>
-                </SettingsSwitchContent>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </SettingsSwitchItem>
-            )}
-          />
+              <FormField
+                control={form.control}
+                name='PasswordRegisterEnabled'
+                render={({ field }) => (
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>{t('Password Registration')}</FormLabel>
+                      <FormDescription>
+                        {t('Allow registration with password')}
+                      </FormDescription>
+                    </SettingsSwitchContent>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </SettingsSwitchItem>
+                )}
+              />
+            </>
+          )}
 
           <FormField
             control={form.control}

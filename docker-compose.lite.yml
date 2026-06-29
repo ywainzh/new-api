@@ -1,0 +1,27 @@
+services:
+  new-api:
+    container_name: new-api
+    image: ${APP_IMAGE}
+    restart: unless-stopped
+    init: true
+    command: --log-dir /app/logs
+    env_file:
+      - .env
+    ports:
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-38080}:3000"
+    volumes:
+      - ./data:/data
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/status | grep -q '\"success\":true' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: 512m
+    cpus: 1

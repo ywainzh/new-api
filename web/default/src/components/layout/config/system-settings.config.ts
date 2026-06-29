@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type TFunction } from 'i18next'
+import type { TFunction } from 'i18next'
 import {
   Box,
   CreditCard,
@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   Wrench,
 } from 'lucide-react'
+
 import { getAuthSectionNavItems } from '@/features/system-settings/auth/section-registry.tsx'
 import { getBillingSectionNavItems } from '@/features/system-settings/billing/section-registry.tsx'
 import { getContentSectionNavItems } from '@/features/system-settings/content/section-registry.tsx'
@@ -33,7 +34,8 @@ import { getModelsSectionNavItems } from '@/features/system-settings/models/sect
 import { getOperationsSectionNavItems } from '@/features/system-settings/operations/section-registry.tsx'
 import { getSecuritySectionNavItems } from '@/features/system-settings/security/section-registry.tsx'
 import { getSiteSectionNavItems } from '@/features/system-settings/site/section-registry.tsx'
-import type { NavGroup, SidebarView } from '../types'
+
+import type { NavGroup, SidebarView, SidebarViewContext } from '../types'
 
 /**
  * Sidebar nav groups for the System Settings nested view.
@@ -42,48 +44,70 @@ import type { NavGroup, SidebarView } from '../types'
  * header already provides top-level context — the inner group label
  * scopes the items as "administration" actions.
  */
-function getSystemSettingsNavGroups(t: TFunction): NavGroup[] {
+function getSystemSettingsNavGroups(
+  t: TFunction,
+  context?: SidebarViewContext
+): NavGroup[] {
+  const personalModeEnabled = context?.personalModeEnabled === true
+  const items = [
+    {
+      title: t('Site & Branding'),
+      icon: Settings,
+      items: getSiteSectionNavItems(t),
+    },
+    {
+      title: t('Authentication'),
+      icon: Shield,
+      items: personalModeEnabled
+        ? getAuthSectionNavItems(t).filter(
+            (item) => item.url === '/system-settings/auth/basic-auth'
+          )
+        : getAuthSectionNavItems(t),
+    },
+    {
+      title: t('Billing & Payment'),
+      icon: CreditCard,
+      items: personalModeEnabled
+        ? getBillingSectionNavItems(t).filter((item) =>
+            [
+              '/system-settings/billing/currency',
+              '/system-settings/billing/model-pricing',
+              '/system-settings/billing/group-pricing',
+            ].includes(String(item.url))
+          )
+        : getBillingSectionNavItems(t),
+    },
+    {
+      title: t('Models & Routing'),
+      icon: Box,
+      items: getModelsSectionNavItems(t),
+    },
+    {
+      title: t('Security & Limits'),
+      icon: ShieldAlert,
+      items: getSecuritySectionNavItems(t),
+    },
+    {
+      title: t('Console Content'),
+      icon: Layout,
+      items: personalModeEnabled
+        ? getContentSectionNavItems(t).filter(
+            (item) => item.url !== '/system-settings/content/chat'
+          )
+        : getContentSectionNavItems(t),
+    },
+    {
+      title: t('Operations'),
+      icon: Wrench,
+      items: getOperationsSectionNavItems(t),
+    },
+  ].filter((item) => item.items.length > 0)
+
   return [
     {
       id: 'system-administration',
       title: t('System Administration'),
-      items: [
-        {
-          title: t('Site & Branding'),
-          icon: Settings,
-          items: getSiteSectionNavItems(t),
-        },
-        {
-          title: t('Authentication'),
-          icon: Shield,
-          items: getAuthSectionNavItems(t),
-        },
-        {
-          title: t('Billing & Payment'),
-          icon: CreditCard,
-          items: getBillingSectionNavItems(t),
-        },
-        {
-          title: t('Models & Routing'),
-          icon: Box,
-          items: getModelsSectionNavItems(t),
-        },
-        {
-          title: t('Security & Limits'),
-          icon: ShieldAlert,
-          items: getSecuritySectionNavItems(t),
-        },
-        {
-          title: t('Console Content'),
-          icon: Layout,
-          items: getContentSectionNavItems(t),
-        },
-        {
-          title: t('Operations'),
-          icon: Wrench,
-          items: getOperationsSectionNavItems(t),
-        },
-      ],
+      items,
     },
   ]
 }

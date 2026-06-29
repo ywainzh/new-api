@@ -17,13 +17,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { isSidebarModuleEnabled } from '@/lib/nav-modules'
+import { useEffect } from 'react'
+
 import { Main } from '@/components/layout'
 import { Playground } from '@/features/playground'
+import { useStatus } from '@/hooks/use-status'
+import { getStatus } from '@/lib/api'
+import { isSidebarModuleEnabledFromStatus } from '@/lib/nav-modules'
 
 export const Route = createFileRoute('/_authenticated/playground/')({
-  beforeLoad: () => {
-    if (!isSidebarModuleEnabled('chat', 'playground')) {
+  beforeLoad: async () => {
+    const status = await getStatus()
+    if (!isSidebarModuleEnabledFromStatus(status, 'chat', 'playground')) {
       throw redirect({ to: '/dashboard' })
     }
   },
@@ -31,6 +36,18 @@ export const Route = createFileRoute('/_authenticated/playground/')({
 })
 
 function PlaygroundPage() {
+  const { status } = useStatus()
+
+  useEffect(() => {
+    if (status?.personal_mode_enabled === true) {
+      window.location.replace('/dashboard')
+    }
+  }, [status?.personal_mode_enabled])
+
+  if (status?.personal_mode_enabled === true) {
+    return null
+  }
+
   return (
     <Main className='p-0'>
       <Playground />

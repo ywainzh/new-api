@@ -16,9 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type TFunction } from 'i18next'
+import type { TFunction } from 'i18next'
+
 import { SYSTEM_SETTINGS_VIEW } from '../config/system-settings.config'
-import type { NavGroup, SidebarView } from '../types'
+import type { NavGroup, SidebarView, SidebarViewContext } from '../types'
 
 /**
  * Registered nested sidebar views.
@@ -51,8 +52,9 @@ export function resolveSidebarView(pathname: string): SidebarView | null {
  */
 export function getNavGroupsForPath(
   pathname: string,
-  t: TFunction
+  t: TFunction,
+  context?: SidebarViewContext
 ): NavGroup[] | null {
   const view = resolveSidebarView(pathname)
-  return view ? view.getNavGroups(t) : null
+  return view ? view.getNavGroups(t, context) : null
 }

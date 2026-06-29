@@ -11,9 +11,12 @@ import (
 )
 
 type Setup struct {
-	Status       bool   `json:"status"`
-	RootInit     bool   `json:"root_init"`
-	DatabaseType string `json:"database_type"`
+	Status              bool   `json:"status"`
+	RootInit            bool   `json:"root_init"`
+	DatabaseType        string `json:"database_type"`
+	PersonalModeEnabled bool   `json:"personal_mode_enabled"`
+	SelfUseModeEnabled  bool   `json:"SelfUseModeEnabled"`
+	DemoSiteEnabled     bool   `json:"DemoSiteEnabled"`
 }
 
 type SetupRequest struct {
@@ -26,9 +29,18 @@ type SetupRequest struct {
 
 func GetSetup(c *gin.Context) {
 	setup := Setup{
-		Status: constant.Setup,
+		Status:              constant.Setup,
+		PersonalModeEnabled: operation_setting.IsPersonalModeEnabled(),
+		SelfUseModeEnabled:  operation_setting.SelfUseModeEnabled,
+		DemoSiteEnabled:     operation_setting.DemoSiteEnabled,
+	}
+	if setup.PersonalModeEnabled {
+		setup.SelfUseModeEnabled = true
+		setup.DemoSiteEnabled = false
 	}
 	if constant.Setup {
+		setup.RootInit = model.RootUserExists()
+		setup.DatabaseType = string(common.MainDatabaseType())
 		c.JSON(200, gin.H{
 			"success": true,
 			"data":    setup,
@@ -64,6 +76,10 @@ func PostSetup(c *gin.Context) {
 			"message": "请求参数有误",
 		})
 		return
+	}
+	if operation_setting.IsPersonalModeEnabled() {
+		req.SelfUseModeEnabled = true
+		req.DemoSiteEnabled = false
 	}
 
 	// If root doesn't exist, validate and create admin account

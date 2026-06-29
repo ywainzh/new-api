@@ -15,6 +15,9 @@ import (
 	"gorm.io/gorm"
 )
 
+const personalHeaderNavModules = `{"home":true,"console":true,"pricing":{"enabled":false,"requireAuth":true},"rankings":{"enabled":false,"requireAuth":true},"docs":false,"about":false}`
+const personalSidebarModulesAdmin = `{"chat":{"enabled":false,"playground":false,"chat":false},"console":{"enabled":true,"detail":true,"token":true,"log":true,"midjourney":false,"task":true},"personal":{"enabled":true,"topup":false,"personal":true},"admin":{"enabled":true,"channel":true,"models":true,"redemption":false,"user":false,"setting":true,"subscription":false}}`
+
 type Option struct {
 	Key   string `json:"key" gorm:"primaryKey"`
 	Value string `json:"value"`
@@ -181,6 +184,7 @@ func InitOptionMap() {
 	for k, v := range modelConfigs {
 		common.OptionMap[k] = v
 	}
+	applyPersonalModeDefaultsLocked()
 
 	common.OptionMapRWMutex.Unlock()
 	loadOptionsFromDatabase()
@@ -194,6 +198,47 @@ func loadOptionsFromDatabase() {
 			common.SysLog("failed to update option map: " + err.Error())
 		}
 	}
+	if operation_setting.IsPersonalModeEnabled() {
+		applyPersonalModeRuntimeDefaults()
+	}
+}
+
+func applyPersonalModeRuntimeDefaults() {
+	common.OptionMapRWMutex.Lock()
+	defer common.OptionMapRWMutex.Unlock()
+	applyPersonalModeDefaultsLocked()
+}
+
+func applyPersonalModeDefaultsLocked() {
+	if !operation_setting.IsPersonalModeEnabled() {
+		return
+	}
+	operation_setting.SelfUseModeEnabled = true
+	common.RegisterEnabled = false
+	common.PasswordRegisterEnabled = false
+	common.GitHubOAuthEnabled = false
+	common.LinuxDOOAuthEnabled = false
+	common.WeChatAuthEnabled = false
+	common.TelegramOAuthEnabled = false
+	common.QuotaForNewUser = 0
+	common.QuotaForInviter = 0
+	common.QuotaForInvitee = 0
+	system_setting.GetDiscordSettings().Enabled = false
+	system_setting.GetOIDCSettings().Enabled = false
+	common.OptionMap["SelfUseModeEnabled"] = "true"
+	common.OptionMap["RegisterEnabled"] = "false"
+	common.OptionMap["PasswordRegisterEnabled"] = "false"
+	common.OptionMap["GitHubOAuthEnabled"] = "false"
+	common.OptionMap["LinuxDOOAuthEnabled"] = "false"
+	common.OptionMap["WeChatAuthEnabled"] = "false"
+	common.OptionMap["TelegramOAuthEnabled"] = "false"
+	common.OptionMap["discord.enabled"] = "false"
+	common.OptionMap["oidc.enabled"] = "false"
+	common.OptionMap["QuotaForNewUser"] = "0"
+	common.OptionMap["QuotaForInviter"] = "0"
+	common.OptionMap["QuotaForInvitee"] = "0"
+	common.OptionMap["HeaderNavModules"] = personalHeaderNavModules
+	common.OptionMap["SidebarModulesAdmin"] = personalSidebarModulesAdmin
 }
 
 func SyncOptions(frequency int) {
@@ -205,6 +250,9 @@ func SyncOptions(frequency int) {
 }
 
 func UpdateOption(key string, value string) error {
+	if operation_setting.IsPersonalModeEnabled() {
+		value = normalizePersonalModeOptionValue(key, value)
+	}
 	// Save to database first
 	option := Option{
 		Key: key,
@@ -228,6 +276,11 @@ func UpdateOption(key string, value string) error {
 func UpdateOptionsBulk(values map[string]string) error {
 	if len(values) == 0 {
 		return nil
+	}
+	if operation_setting.IsPersonalModeEnabled() {
+		for k, v := range values {
+			values[k] = normalizePersonalModeOptionValue(k, v)
+		}
 	}
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		for k, v := range values {
@@ -253,9 +306,36 @@ func UpdateOptionsBulk(values map[string]string) error {
 	return nil
 }
 
+func normalizePersonalModeOptionValue(key string, value string) string {
+	switch key {
+	case "SelfUseModeEnabled":
+		return "true"
+	case "RegisterEnabled",
+		"PasswordRegisterEnabled",
+		"GitHubOAuthEnabled",
+		"LinuxDOOAuthEnabled",
+		"WeChatAuthEnabled",
+		"TelegramOAuthEnabled",
+		"discord.enabled",
+		"oidc.enabled":
+		return "false"
+	case "QuotaForNewUser", "QuotaForInviter", "QuotaForInvitee":
+		return "0"
+	case "HeaderNavModules":
+		return personalHeaderNavModules
+	case "SidebarModulesAdmin":
+		return personalSidebarModulesAdmin
+	default:
+		return value
+	}
+}
+
 func updateOptionMap(key string, value string) (err error) {
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
+	if operation_setting.IsPersonalModeEnabled() {
+		value = normalizePersonalModeOptionValue(key, value)
+	}
 	common.OptionMap[key] = value
 
 	// 检查是否是模型配置 - 使用更规范的方式处理

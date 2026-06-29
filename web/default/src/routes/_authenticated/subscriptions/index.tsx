@@ -17,15 +17,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useAuthStore } from '@/stores/auth-store'
-import { ROLE } from '@/lib/roles'
+
 import { Subscriptions } from '@/features/subscriptions'
+import { getStatus } from '@/lib/api'
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/_authenticated/subscriptions/')({
-  beforeLoad: () => {
+  beforeLoad: async () => {
     const { auth } = useAuthStore.getState()
     if (!auth.user || auth.user.role < ROLE.ADMIN) {
       throw redirect({ to: '/403' })
+    }
+    const status = await getStatus()
+    if (status?.personal_mode_enabled === true) {
+      throw redirect({ to: '/dashboard' })
     }
   },
   component: Subscriptions,

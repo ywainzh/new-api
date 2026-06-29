@@ -1,3 +1,4 @@
+import { createFileRoute, redirect } from '@tanstack/react-router'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -17,11 +18,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import z from 'zod'
-import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useAuthStore } from '@/stores/auth-store'
-import { ROLE } from '@/lib/roles'
+
 import { Redemptions } from '@/features/redemption-codes'
 import { REDEMPTION_STATUS_VALUES } from '@/features/redemption-codes/constants'
+import { getStatus } from '@/lib/api'
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
 
 const redemptionsSearchSchema = z.object({
   page: z.number().optional().catch(1),
@@ -31,13 +33,18 @@ const redemptionsSearchSchema = z.object({
 })
 
 export const Route = createFileRoute('/_authenticated/redemption-codes/')({
-  beforeLoad: () => {
+  beforeLoad: async () => {
     const { auth } = useAuthStore.getState()
 
     if (!auth.user || auth.user.role < ROLE.ADMIN) {
       throw redirect({
         to: '/403',
       })
+    }
+
+    const status = await getStatus()
+    if (status?.personal_mode_enabled === true) {
+      throw redirect({ to: '/dashboard' })
     }
   },
   validateSearch: redemptionsSearchSchema,

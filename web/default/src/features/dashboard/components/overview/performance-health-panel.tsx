@@ -16,11 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Gauge, HeartPulse, Timer } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
+
 import { Skeleton } from '@/components/ui/skeleton'
 import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
 import {
@@ -31,9 +31,12 @@ import {
   getSuccessRateTextClass,
 } from '@/features/performance-metrics/lib/format'
 import type { PerfModelSummary } from '@/features/performance-metrics/types'
+import { useStatus } from '@/hooks/use-status'
+import { cn } from '@/lib/utils'
 
 const PERFORMANCE_WINDOW_HOURS = 24
 const TOP_MODEL_LIMIT = 6
+const SKELETON_ROW_KEYS = ['latency', 'throughput', 'success-rate']
 
 type WeightedMetric = 'avg_latency_ms' | 'avg_tps' | 'success_rate'
 
@@ -50,20 +53,23 @@ function simpleAverage(
     total += value
     count++
   }
-  return count > 0 ? total / count : NaN
+  return count > 0 ? total / count : Number.NaN
 }
 
 export function PerformanceHealthPanel() {
   const { t } = useTranslation()
+  const { status } = useStatus()
+  const personalModeEnabled = status?.personal_mode_enabled === true
   const metricsQuery = useQuery({
     queryKey: ['perf-metrics-summary', PERFORMANCE_WINDOW_HOURS],
     queryFn: () => getPerfMetricsSummary(PERFORMANCE_WINDOW_HOURS),
+    enabled: status != null && !personalModeEnabled,
     staleTime: 60 * 1000,
     retry: false,
   })
 
   const models = useMemo(
-    () => metricsQuery.data?.data.models ?? [],
+    () => metricsQuery.data?.data?.models ?? [],
     [metricsQuery.data]
   )
 
@@ -88,6 +94,10 @@ export function PerformanceHealthPanel() {
   const topModels = useMemo(() => models.slice(0, TOP_MODEL_LIMIT), [models])
   const loading = metricsQuery.isLoading
   const hasData = models.length > 0
+
+  if (personalModeEnabled) {
+    return null
+  }
 
   return (
     <section className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
@@ -127,8 +137,8 @@ export function PerformanceHealthPanel() {
 
         {loading ? (
           <div className='space-y-1'>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className='h-5 w-full rounded' />
+            {SKELETON_ROW_KEYS.map((key) => (
+              <Skeleton key={key} className='h-5 w-full rounded' />
             ))}
           </div>
         ) : (

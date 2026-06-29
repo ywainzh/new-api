@@ -86,6 +86,7 @@ const SITE_SECTIONS = [
         <SidebarModulesSection
           config={sidebarConfig}
           initialSerialized={sidebarSerialized}
+          personalModeEnabled={settings.personal_mode_enabled === true}
         />
       )
     },

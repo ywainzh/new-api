@@ -55,7 +55,7 @@ export type PerfModelSummary = {
 export type PerfSummaryAllData = {
   success: boolean
   message?: string
-  data: {
+  data?: {
     models: PerfModelSummary[]
   }
 }

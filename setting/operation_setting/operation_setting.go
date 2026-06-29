@@ -4,6 +4,11 @@ import "strings"
 
 var DemoSiteEnabled = false
 var SelfUseModeEnabled = false
+var PersonalModeForced = false
+
+func IsPersonalModeEnabled() bool {
+	return PersonalModeForced
+}
 
 var AutomaticDisableKeywords = []string{
 	"Your credit balance is too low",

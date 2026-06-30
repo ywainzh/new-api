@@ -686,6 +686,22 @@ func AddChannel(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	timeoutSec := common.GetEnvOrDefault("SYNC_HTTP_TIMEOUT_SECONDS", 15)
+	syncCtx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(timeoutSec)*time.Second)
+	syncResult, syncErr := SyncChannelModelsFromAbilities(syncCtx, "zh")
+	cancel()
+	modelSync := gin.H{
+		"success": true,
+		"data":    syncResult,
+	}
+	if syncErr != nil {
+		common.SysError("failed to auto sync channel models: " + syncErr.Error())
+		modelSync = gin.H{
+			"success": false,
+			"message": syncErr.Error(),
+			"data":    syncResult,
+		}
+	}
 	service.ResetProxyClientCache()
 	recordManageAudit(c, "channel.create", map[string]interface{}{
 		"name":  addChannelRequest.Channel.Name,
@@ -693,8 +709,9 @@ func AddChannel(c *gin.Context) {
 		"count": len(channels),
 	})
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
+		"success":    true,
+		"message":    "",
+		"model_sync": modelSync,
 	})
 	return
 }

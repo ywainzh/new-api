@@ -182,15 +182,35 @@ export interface SyncOverwritePayload {
 /**
  * Sync upstream response
  */
+export interface SyncModelsData {
+  created_models?: number
+  created_basic_models?: number
+  updated_models?: number
+  created_vendors?: number
+  skipped_models?: string[]
+  created_list?: string[]
+  updated_list?: string[]
+  source?: {
+    locale?: string
+    models_url?: string
+    vendors_url?: string
+  }
+  upstream_error?: string
+}
+
 export interface SyncUpstreamResponse {
   success: boolean
   message?: string
-  data?: {
-    created_models?: number
-    updated_models?: number
-    created_vendors?: number
-    skipped_models?: string[]
-  }
+  data?: SyncModelsData
+}
+
+/**
+ * Sync channel models response
+ */
+export interface SyncChannelModelsResponse {
+  success: boolean
+  message?: string
+  data?: SyncModelsData
 }
 
 /**

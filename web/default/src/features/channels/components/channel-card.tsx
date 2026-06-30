@@ -36,7 +36,7 @@ const SENSITIVE_MASK = '••••'
  * renderer via `flexRender`, so the table's information and interactions are
  * preserved: row selection, provider/multi-key/IO.NET type badge, id,
  * name/remark + warning icons, status (with tooltips), groups, inline
- * priority/weight spinners, balance refresh, response/test times, tag
+ * priority/weight spinners, used quota, response/test times, tag
  * expand-collapse, and the per-row (or per-tag) actions menu.
  */
 function ChannelCardComponent({
@@ -60,7 +60,7 @@ function ChannelCardComponent({
   }
 
   const fieldLabels: Record<string, string> = {
-    balance: t('Used / Remaining'),
+    balance: t('Used'),
     response_time: t('Response'),
     test_time: t('Last Tested'),
   }
@@ -108,7 +108,7 @@ function ChannelCardComponent({
           </div>
         </div>
 
-        {/* Body: left column (id/name + balance) paired with a right-aligned
+        {/* Body: left column (id/name + used quota) paired with a right-aligned
           column (priority/weight + response/test time). */}
         <div className='flex items-start justify-between gap-3'>
           {/* Left column */}

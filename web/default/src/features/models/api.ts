@@ -27,6 +27,7 @@ import type {
   Vendor,
   SearchModelsParams,
   SyncUpstreamResponse,
+  SyncChannelModelsResponse,
   PreviewUpstreamDiffResponse,
   MissingModelsResponse,
   PrefillGroupsResponse,
@@ -190,6 +191,16 @@ export async function syncUpstream(params?: {
   overwrite?: SyncOverwritePayload[]
 }): Promise<SyncUpstreamResponse> {
   const res = await api.post('/api/models/sync_upstream', params)
+  return res.data
+}
+
+/**
+ * Create model metadata from channel abilities.
+ */
+export async function syncChannelModels(params?: {
+  locale?: SyncLocale
+}): Promise<SyncChannelModelsResponse> {
+  const res = await api.post('/api/models/sync_from_channels', params)
   return res.data
 }
 

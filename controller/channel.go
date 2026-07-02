@@ -71,6 +71,14 @@ func clearChannelInfo(channel *model.Channel) {
 	}
 }
 
+func withChannelAffinityCacheDeleted(params map[string]interface{}) map[string]interface{} {
+	if params == nil {
+		params = map[string]interface{}{}
+	}
+	params["channel_affinity_cache_deleted"] = service.ClearChannelAffinityCacheAll()
+	return params
+}
+
 func applyChannelStatusFilter(query *gorm.DB, statusFilter int) *gorm.DB {
 	if statusFilter == common.ChannelStatusEnabled {
 		return query.Where("status = ?", common.ChannelStatusEnabled)
@@ -703,11 +711,11 @@ func AddChannel(c *gin.Context) {
 		}
 	}
 	service.ResetProxyClientCache()
-	recordManageAudit(c, "channel.create", map[string]interface{}{
+	recordManageAudit(c, "channel.create", withChannelAffinityCacheDeleted(map[string]interface{}{
 		"name":  addChannelRequest.Channel.Name,
 		"type":  addChannelRequest.Channel.Type,
 		"count": len(channels),
-	})
+	}))
 	c.JSON(http.StatusOK, gin.H{
 		"success":    true,
 		"message":    "",
@@ -729,10 +737,10 @@ func DeleteChannel(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
-	recordManageAudit(c, "channel.delete", map[string]interface{}{
+	recordManageAudit(c, "channel.delete", withChannelAffinityCacheDeleted(map[string]interface{}{
 		"id":   id,
 		"name": channelName,
-	})
+	}))
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -747,9 +755,9 @@ func DeleteDisabledChannel(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
-	recordManageAudit(c, "channel.delete_disabled", map[string]interface{}{
+	recordManageAudit(c, "channel.delete_disabled", withChannelAffinityCacheDeleted(map[string]interface{}{
 		"count": rows,
-	})
+	}))
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -786,9 +794,9 @@ func DisableTagChannels(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
-	recordManageAudit(c, "channel.tag_disable", map[string]interface{}{
+	recordManageAudit(c, "channel.tag_disable", withChannelAffinityCacheDeleted(map[string]interface{}{
 		"tag": channelTag.Tag,
-	})
+	}))
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -812,9 +820,9 @@ func EnableTagChannels(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
-	recordManageAudit(c, "channel.tag_enable", map[string]interface{}{
+	recordManageAudit(c, "channel.tag_enable", withChannelAffinityCacheDeleted(map[string]interface{}{
 		"tag": channelTag.Tag,
-	})
+	}))
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -872,9 +880,9 @@ func EditTagChannels(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
-	recordManageAudit(c, "channel.tag_edit", map[string]interface{}{
+	recordManageAudit(c, "channel.tag_edit", withChannelAffinityCacheDeleted(map[string]interface{}{
 		"tag": channelTag.Tag,
-	})
+	}))
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -903,9 +911,9 @@ func DeleteChannelBatch(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
-	recordManageAudit(c, "channel.delete_batch", map[string]interface{}{
+	recordManageAudit(c, "channel.delete_batch", withChannelAffinityCacheDeleted(map[string]interface{}{
 		"count": len(channelBatch.Ids),
-	})
+	}))
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -1081,17 +1089,23 @@ func UpdateChannel(c *gin.Context) {
 	if channel.Type != originChannel.Type {
 		changedFields = append(changedFields, "type")
 	}
+	if channel.GetPriority() != originChannel.GetPriority() {
+		changedFields = append(changedFields, "priority")
+	}
+	if channel.GetWeight() != originChannel.GetWeight() {
+		changedFields = append(changedFields, "weight")
+	}
 	if !equalStringPtr(channel.BaseURL, originChannel.BaseURL) {
 		changedFields = append(changedFields, "base_url")
 	}
 	if channel.Key != "" && channel.Key != originChannel.Key {
 		changedFields = append(changedFields, "key")
 	}
-	recordManageAudit(c, "channel.update", map[string]interface{}{
+	recordManageAudit(c, "channel.update", withChannelAffinityCacheDeleted(map[string]interface{}{
 		"id":             channel.Id,
 		"name":           channel.Name,
 		"changed_fields": changedFields,
-	})
+	}))
 	channel.Key = ""
 	clearChannelInfo(&channel.Channel)
 	c.JSON(http.StatusOK, gin.H{
@@ -1118,11 +1132,15 @@ func UpdateChannelStatus(c *gin.Context) {
 		model.InitChannelCache()
 		service.ResetProxyClientCache()
 	}
-	recordManageAudit(c, "channel.status_update", map[string]interface{}{
+	auditParams := map[string]interface{}{
 		"id":      id,
 		"status":  req.Status,
 		"changed": changed,
-	})
+	}
+	if changed {
+		auditParams = withChannelAffinityCacheDeleted(auditParams)
+	}
+	recordManageAudit(c, "channel.status_update", auditParams)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -1146,11 +1164,15 @@ func BatchUpdateChannelStatus(c *gin.Context) {
 		model.InitChannelCache()
 		service.ResetProxyClientCache()
 	}
-	recordManageAudit(c, "channel.status_update_batch", map[string]interface{}{
+	auditParams := map[string]interface{}{
 		"count":  changedCount,
 		"total":  len(req.Ids),
 		"status": req.Status,
-	})
+	}
+	if changedCount > 0 {
+		auditParams = withChannelAffinityCacheDeleted(auditParams)
+	}
+	recordManageAudit(c, "channel.status_update_batch", auditParams)
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -1309,9 +1331,9 @@ func BatchSetChannelTag(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
-	recordManageAudit(c, "channel.tag_batch_set", map[string]interface{}{
+	recordManageAudit(c, "channel.tag_batch_set", withChannelAffinityCacheDeleted(map[string]interface{}{
 		"count": len(channelBatch.Ids),
-	})
+	}))
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -1409,11 +1431,11 @@ func CopyChannel(c *gin.Context) {
 		return
 	}
 	model.InitChannelCache()
-	recordManageAudit(c, "channel.copy", map[string]interface{}{
+	recordManageAudit(c, "channel.copy", withChannelAffinityCacheDeleted(map[string]interface{}{
 		"sourceId": id,
 		"id":       clone.Id,
 		"name":     clone.Name,
-	})
+	}))
 	// success
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": gin.H{"id": clone.Id}})
 }
@@ -1484,10 +1506,10 @@ func ManageMultiKeys(c *gin.Context) {
 	if request.Action == "get_key_status" {
 		markAuditLogged(c)
 	} else {
-		recordManageAudit(c, "channel.multi_key_manage", map[string]interface{}{
+		recordManageAudit(c, "channel.multi_key_manage", withChannelAffinityCacheDeleted(map[string]interface{}{
 			"action": request.Action,
 			"id":     channel.Id,
-		})
+		}))
 	}
 
 	lock := model.GetChannelPollingLock(channel.Id)

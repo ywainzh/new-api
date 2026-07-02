@@ -645,24 +645,34 @@ func ClearCurrentChannelAffinityCache(c *gin.Context) bool {
 	if c == nil {
 		return false
 	}
-	cacheKey, _, ok := getChannelAffinityContext(c)
-	if !ok || cacheKey == "" {
+	meta, ok := getChannelAffinityMeta(c)
+	if !ok || meta.CacheKey == "" {
 		return false
 	}
 
 	cache := getChannelAffinityCache()
-	deleted, err := cache.DeleteMany([]string{cacheKey})
+	deleted, err := cache.DeleteMany([]string{meta.CacheKey})
 	if err != nil {
 		common.SysError(fmt.Sprintf("channel affinity cache delete current failed: err=%v", err))
 		return false
 	}
 	c.Set(ginKeyChannelAffinitySkipRetry, false)
-	for _, ok := range deleted {
-		if ok {
-			return true
-		}
+	if deleted[meta.CacheKey] {
+		return true
 	}
-	return false
+	fullKey := cache.FullKey(meta.CacheKey)
+	return deleted[fullKey]
+}
+
+func PrepareChannelAffinityRetryAfterFailure(c *gin.Context) bool {
+	if c == nil || ShouldSkipRetryAfterChannelAffinityFailure(c) {
+		return false
+	}
+	meta, ok := getChannelAffinityMeta(c)
+	if !ok || meta.CacheKey == "" {
+		return false
+	}
+	return ClearCurrentChannelAffinityCache(c)
 }
 
 func ShouldKeepChannelAffinityOnChannelDisabled() bool {

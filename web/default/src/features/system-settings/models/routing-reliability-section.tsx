@@ -152,7 +152,7 @@ function normalizeChannelTestMode(value?: string): ChannelTestMode {
 const buildFormDefaults = (
   defaults: RoutingReliabilitySectionProps['defaultValues']
 ): RoutingReliabilityFormInput => ({
-  RetryTimes: defaults.RetryTimes ?? 0,
+  RetryTimes: defaults.RetryTimes ?? 2,
   ChannelDisableThreshold: defaults.ChannelDisableThreshold ?? '',
   AutomaticDisableChannelEnabled: defaults.AutomaticDisableChannelEnabled,
   AutomaticEnableChannelEnabled: defaults.AutomaticEnableChannelEnabled,
@@ -175,7 +175,7 @@ const buildFormDefaults = (
 const normalizeDefaults = (
   defaults: RoutingReliabilitySectionProps['defaultValues']
 ): NormalizedRoutingReliabilityValues => ({
-  RetryTimes: defaults.RetryTimes ?? 0,
+  RetryTimes: defaults.RetryTimes ?? 2,
   ChannelDisableThreshold: (defaults.ChannelDisableThreshold ?? '').trim(),
   AutomaticDisableChannelEnabled: defaults.AutomaticDisableChannelEnabled,
   AutomaticEnableChannelEnabled: defaults.AutomaticEnableChannelEnabled,

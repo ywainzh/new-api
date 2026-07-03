@@ -61,6 +61,7 @@ type CommonLogDraft = {
   sourceKey: string
   filters: CommonLogFilters
   logType: LogTypeValue
+  timeTouched: boolean
 }
 
 function isLogTypeValue(value: string): value is LogTypeValue {
@@ -121,6 +122,8 @@ export function CommonLogsFilterBar<TData>(
 
   const searchState = useMemo<CommonLogDraft>(() => {
     const { start, end } = getDefaultTimeRange()
+    const hasTimeSearch =
+      searchParams.startTime != null || searchParams.endTime != null
     const sourceValues = {
       startTime: searchParams.startTime,
       endTime: searchParams.endTime,
@@ -150,6 +153,7 @@ export function CommonLogsFilterBar<TData>(
       sourceKey: buildSearchSourceKey(sourceValues),
       filters,
       logType: getLogTypeValue(searchParams.type),
+      timeTouched: hasTimeSearch,
     }
   }, [
     searchParams.startTime,
@@ -178,39 +182,66 @@ export function CommonLogsFilterBar<TData>(
           sourceKey: searchState.sourceKey,
           filters: { ...base.filters, [field]: value },
           logType: base.logType,
+          timeTouched:
+            base.timeTouched || field === 'startTime' || field === 'endTime',
         }
       })
     },
     [searchState]
   )
 
+  const refreshCommonLogQueries = useCallback(() => {
+    queryClient.refetchQueries({ queryKey: ['logs', 'common'] })
+    queryClient.refetchQueries({ queryKey: ['usage-logs-stats'] })
+  }, [queryClient])
+
   const handleApply = useCallback(() => {
-    const filterParams = buildSearchParams(filters, 'common')
+    const { start, end } = getDefaultTimeRange()
+    const nextFilters = activeDraft.timeTouched
+      ? filters
+      : { ...filters, startTime: start, endTime: end }
+    const filterParams = buildSearchParams(
+      activeDraft.timeTouched
+        ? nextFilters
+        : { ...nextFilters, startTime: undefined, endTime: undefined },
+      'common'
+    )
+    const nextSearch = {
+      ...filterParams,
+      type: [logType],
+      page: 1,
+    }
+    setDraft({
+      sourceKey: buildSearchSourceKey(nextSearch),
+      filters: nextFilters,
+      logType,
+      timeTouched: activeDraft.timeTouched,
+    })
     navigate({
       to: '/usage-logs/$section',
       params: { section: 'common' },
-      search: {
-        ...filterParams,
-        type: [logType],
-        page: 1,
-      },
+      search: nextSearch,
     })
-    queryClient.invalidateQueries({ queryKey: ['logs'] })
-    queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
-  }, [filters, logType, navigate, queryClient])
+    refreshCommonLogQueries()
+  }, [
+    activeDraft.timeTouched,
+    filters,
+    logType,
+    navigate,
+    refreshCommonLogQueries,
+  ])
 
   const handleReset = useCallback(() => {
     const { start, end } = getDefaultTimeRange()
     const resetFilters: CommonLogFilters = { startTime: start, endTime: end }
     const resetSearch = {
       type: [LOG_TYPE_ALL_VALUE],
-      startTime: start.getTime(),
-      endTime: end.getTime(),
     }
     setDraft({
       sourceKey: buildSearchSourceKey(resetSearch),
       filters: resetFilters,
       logType: LOG_TYPE_ALL_VALUE,
+      timeTouched: false,
     })
 
     navigate({
@@ -221,9 +252,8 @@ export function CommonLogsFilterBar<TData>(
         ...resetSearch,
       },
     })
-    queryClient.invalidateQueries({ queryKey: ['logs'] })
-    queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
-  }, [navigate, queryClient])
+    refreshCommonLogQueries()
+  }, [navigate, refreshCommonLogQueries])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -338,6 +368,7 @@ export function CommonLogsFilterBar<TData>(
               sourceKey: searchState.sourceKey,
               filters: base.filters,
               logType: nextLogType,
+              timeTouched: base.timeTouched,
             }
           })
         }}

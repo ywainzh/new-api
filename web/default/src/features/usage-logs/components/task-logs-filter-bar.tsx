@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useState, useEffect, useCallback } from 'react'
 import { useQueryClient, useIsFetching } from '@tanstack/react-query'
 import { useNavigate, getRouteApi } from '@tanstack/react-router'
-import { type Table } from '@tanstack/react-table'
+import type { Table } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 import { useIsAdmin } from '@/hooks/use-admin'
 import { buildSearchParams } from '../lib/filter'
@@ -75,9 +75,14 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
     const { start, end } = getDefaultTimeRange()
     return { startTime: start, endTime: end }
   })
+  const [timeTouched, setTimeTouched] = useState(
+    () => searchParams.startTime != null || searchParams.endTime != null
+  )
 
   useEffect(() => {
     const { start, end } = getDefaultTimeRange()
+    const hasTimeSearch =
+      searchParams.startTime != null || searchParams.endTime != null
     const baseFilters = {
       startTime: searchParams.startTime
         ? new Date(searchParams.startTime)
@@ -99,6 +104,7 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
           }
 
     setFilters(next)
+    setTimeTouched(hasTimeSearch)
   }, [
     props.logCategory,
     searchParams.startTime,
@@ -109,13 +115,30 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
 
   const handleChange = useCallback(
     (field: keyof TaskLogsFilters, value: Date | string | undefined) => {
+      if (field === 'startTime' || field === 'endTime') {
+        setTimeTouched(true)
+      }
       setFilters((prev) => ({ ...prev, [field]: value }))
     },
     []
   )
 
+  const refreshTaskLogQueries = useCallback(() => {
+    queryClient.refetchQueries({ queryKey: ['logs', props.logCategory] })
+  }, [props.logCategory, queryClient])
+
   const handleApply = useCallback(() => {
-    const filterParams = buildSearchParams(filters, props.logCategory)
+    const { start, end } = getDefaultTimeRange()
+    const nextFilters = timeTouched
+      ? filters
+      : { ...filters, startTime: start, endTime: end }
+    const filterParams = buildSearchParams(
+      timeTouched
+        ? nextFilters
+        : { ...nextFilters, startTime: undefined, endTime: undefined },
+      props.logCategory
+    )
+    setFilters(nextFilters)
     navigate({
       to: '/usage-logs/$section',
       params: { section: props.logCategory },
@@ -124,25 +147,24 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
         page: 1,
       },
     })
-    queryClient.invalidateQueries({ queryKey: ['logs'] })
-  }, [filters, navigate, props.logCategory, queryClient])
+    refreshTaskLogQueries()
+  }, [filters, navigate, props.logCategory, refreshTaskLogQueries, timeTouched])
 
   const handleReset = useCallback(() => {
     const { start, end } = getDefaultTimeRange()
     const resetFilters: TaskLogsFilters = { startTime: start, endTime: end }
     setFilters(resetFilters)
+    setTimeTouched(false)
 
     navigate({
       to: '/usage-logs/$section',
       params: { section: props.logCategory },
       search: {
         page: 1,
-        startTime: start.getTime(),
-        endTime: end.getTime(),
       },
     })
-    queryClient.invalidateQueries({ queryKey: ['logs'] })
-  }, [navigate, props.logCategory, queryClient])
+    refreshTaskLogQueries()
+  }, [navigate, props.logCategory, refreshTaskLogQueries])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
-import { buildQueryParams } from './lib/utils'
+import { buildQueryParams } from './lib/query-params'
 import type {
   GetLogsParams,
   GetLogsResponse,
@@ -46,9 +46,12 @@ async function fetchLogs<T>(
     p: paramRecord.p || 1,
     page_size: paramRecord.page_size || 20,
     ...params,
+    _t: Date.now(),
   })
   const path = buildApiPath(endpoint, isAdmin)
-  const res = await api.get(`${path}?${queryParams}`)
+  const res = await api.get(`${path}?${queryParams}`, {
+    disableDuplicate: true,
+  })
   return res.data
 }
 
@@ -57,11 +60,14 @@ async function fetchLogStats<T>(
   params: T,
   isAdmin: boolean
 ): Promise<GetLogStatsResponse> {
-  const queryParams = buildQueryParams(
-    params as unknown as Record<string, unknown>
-  )
+  const queryParams = buildQueryParams({
+    ...(params as unknown as Record<string, unknown>),
+    _t: Date.now(),
+  })
   const path = buildApiPath(endpoint, isAdmin)
-  const res = await api.get(`${path}/stat?${queryParams}`)
+  const res = await api.get(`${path}/stat?${queryParams}`, {
+    disableDuplicate: true,
+  })
   return res.data
 }
 

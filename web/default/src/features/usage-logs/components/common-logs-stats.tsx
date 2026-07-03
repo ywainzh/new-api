@@ -72,6 +72,8 @@ export function CommonLogsStats() {
         : DEFAULT_LOG_STATS
     },
     placeholderData: (previousData) => previousData,
+    refetchOnMount: 'always',
+    staleTime: 0,
   })
 
   if (isLoading) {
